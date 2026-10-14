@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { getJson } from '../api/client.js';
 import { CapabilityCard } from './CapabilityCard.js';
 
 type Activity = {
@@ -7,13 +9,33 @@ type Activity = {
   occurredAt?: string;
 };
 
+type ActivityResponse = { activities: Activity[] };
+
 export default function Activities() {
+  const [activities, setActivities] = useState<Activity[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getJson<ActivityResponse>('/api/activities')
+      .then(({ activities: result }) => {
+        if (!Array.isArray(result)) throw new Error('The activities response was invalid.');
+        if (active) setActivities(result);
+      })
+      .catch((requestError: unknown) => {
+        if (!active) return;
+        const message = requestError instanceof Error ? requestError.message : 'An unexpected error occurred.';
+        setError(`Unable to load activities. ${message}`);
+      });
+    return () => { active = false; };
+  }, []);
+
   return (
     <CapabilityCard<Activity>
       title="Activities"
       description="Track student activity minutes and points."
-      path="/api/activities"
-      dataKey="activities"
+      items={activities}
+      error={error}
       emptyMessage="No activities have been recorded yet."
       renderItem={(activity) => (
         <>
